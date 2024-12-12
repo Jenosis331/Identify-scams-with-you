@@ -1,0 +1,257 @@
+<head>
+    <meta charset="utf-8" />
+    <title>語音辨識詐騙檢測系統</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"> <!-- Font Awesome CDN -->
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f9f9f9;
+            color: #333;
+            margin: 0;
+            padding: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 90vh;
+        }
+
+        h1 {
+            color: #444;
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+
+        p {
+            font-size: 16px;
+            margin: 10px 0;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            max-width: 600px;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        input[type="button"] {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease;
+        }
+
+        input[type="button"]:hover {
+            background-color: #45a049;
+        }
+
+        #infoBox {
+            color: #ff5722;
+            font-weight: bold;
+            
+        }
+
+        .scrollable-window {
+            width: 150%;
+            max-width: 600px;
+            height: 200px;
+            overflow-y: scroll;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            
+        }
+
+        .scrollable-window div {
+            margin-bottom: 5px;
+        }
+        #resetButton img {
+            width: 24px; 
+            height: 24px; 
+            vertical-align: middle; 
+            transition: transform 0.3s ease;
+            
+        }
+
+        #resetButton:hover img {
+            transform: scale(1.2); 
+        }
+
+        .black-text {
+            color: #333;
+            font-size: 20px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .red-text {
+            color: #e53935;
+            font-weight: bold;
+            font-size: 20px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #watermark {
+            position: fixed;
+            width: 600px; 
+            height: 600px; 
+            background-image: url('shake.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            opacity: 0.1; 
+            pointer-events: none; 
+        }
+
+    </style>
+</head>
+
+<body>
+    <h1>語音辨識詐騙檢測系統</h1>
+    <div id="watermark" style="display: none;"></div>
+    <p input id="textBox" type="text" size="60" value="" readonly style="display: none;"></p>
+    <p>
+        <input id="StartStopButton" type="button" value="開始辨識" onclick="startButton(event)" />
+        <button id="resetButton" onclick="resetButton(event)" style="background: none; border: none; cursor: pointer;">
+            <img src="reset.png" alt="重置" style="width: 24px; height: 24px;">
+        </button>
+    </p>
+    <p id="infoBox"></p>
+    <div style="width: 100%; max-width: 600px; text-align: left;">
+        <p>電話錄音紀錄：</p>
+        <div id="scrollable-window" class="scrollable-window"></div>
+    </div>
+    <p id="risktext" value="" readonly></p>
+
+    <script type="text/javascript">
+        var infoBox;
+        var textBox;
+        var StartStopButton;
+        var final_result = '';
+        var recognizing = false;
+        var scrollableWindow;
+
+
+        function startButton(event) {
+            infoBox = document.getElementById("infoBox");
+            textBox = document.getElementById("textBox");
+            scrollableWindow = document.getElementById("scrollable-window");
+            StartStopButton = document.getElementById("StartStopButton");
+
+            if (recognizing) {
+                recognition.stop();
+            } else {
+                final_result = "";
+                recognition.start();
+            }
+        }
+
+        var recognition = new webkitSpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = false;
+
+        recognition.onstart = function () {
+            recognizing = true;
+            StartStopButton.value = "停止辨識";
+            StartStopButton.style.backgroundColor = "#e53935";
+            infoBox.innerText = "辨識中...";
+
+            var resetButton = document.getElementById("resetButton");
+            resetButton.disabled = true;
+            resetButton.querySelector("img").style.opacity = "0.5";
+            resetButton.querySelector("img").style.transform = "none";
+        };
+
+        recognition.onend = function () {
+            recognizing = false;
+            StartStopButton.value = "開始辨識";
+            StartStopButton.style.backgroundColor = "#4CAF50"; 
+            infoBox.innerText = "";
+
+            var resetButton = document.getElementById("resetButton");
+            resetButton.disabled = false;
+            resetButton.querySelector("img").style.opacity = "1";
+            resetButton.querySelector("img").style.transform = "";
+        };
+
+        recognition.onresult = function (event) {
+            final_result = '';
+            for (var i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    final_result += event.results[i][0].transcript;
+                }
+            }
+
+            if (final_result.trim().length > 0) {
+                textBox.value = final_result;
+                sendToServer(final_result);
+            }
+        }
+
+        var riskcount = 0;
+        var risktext = document.getElementById("risktext");
+        var watermark = document.getElementById("watermark");
+
+        function sendToServer(text) {
+            var xhr = new XMLHttpRequest();
+
+            xhr.open("POST", "http://192.168.141.1:5000", true);
+            xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    var jsonResponse = JSON.parse(xhr.responseText);
+                    var fraudResult = jsonResponse.message;
+                    var newResult = document.createElement("div");
+
+                    // 根據伺服器回傳的結果計算風險
+                    if (fraudResult == "高風險") {
+                        riskcount += 1;
+                    }
+                    newResult.innerText = final_result;
+                    
+                    scrollableWindow.appendChild(newResult);
+                    scrollableWindow.scrollTop = scrollableWindow.scrollHeight;
+
+                    // 檢查風險數量，並更新 risktext 的內容
+                    if (riskcount >= 1) {
+                        risktext.innerText = "高風險";
+                        risktext.className = "red-text";
+                        watermark.style.display = "block";          
+                    }
+                     else {
+                        risktext.innerText = "風險較低";
+                        risktext.className = "black-text";
+                    }
+
+                } else if (xhr.status !== 200) {
+                    infoBox.innerText = "Error: " + xhr.status;
+                }
+            };
+            xhr.send(JSON.stringify({ sample_texts: text }));
+        }
+        
+        function resetButton(event) {
+            textBox.value = "";
+            scrollableWindow.innerHTML = "";
+            infoBox.innerText = "";
+            risktext.innerText = "";
+            riskcount = 0; 
+            watermark.style.display = "none";
+        }
+    </script>
+</body>
+
+</html>
